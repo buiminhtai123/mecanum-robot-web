@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Mecanum Robot Control</title>
+
+<!-- MQTT -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+body {
+    background: #0d1117;
+    color: #fff;
+    text-align: center;
+    font-family: Arial, sans-serif;
+    user-select: none;
+    padding: 20px;
+}
+
+h1 { font-size: 30px; margin-bottom: 5px; }
+h2 { margin: 10px 0; }
+
+/* ===== CAMERA ===== */
+#cam-box {
+    width: 90%;
+    max-width: 640px;
+    margin: auto;
+    border: 3px solid #00ffd5;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#camStream {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    background: #000;
+}
+
+/* ===== SPEED ===== */
+.slider {
+    width: 350px;
+    margin: 15px 0 25px 0;
+}
+
+/* ===== BUTTONS ===== */
+.control-btn {
+    width: 110px;
+    height: 85px;
+    font-size: 32px;
+    margin: 8px;
+    border-radius: 14px;
+    border: none;
+    background: #ffffff;
+    color: #000;
+    cursor: pointer;
+    box-shadow: 0px 4px 8px rgba(255,255,255,0.2);
+    transition: 0.1s;
+}
+
+.control-btn:active {
+    transform: scale(0.93);
+    background: #ffe27a;
+}
+
+.row { margin-top: 10px; }
+
+.led-btn {
+    width: 150px;
+    height: 60px;
+    font-size: 22px;
+    border-radius: 10px;
+    margin: 10px;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🚗 Mecanum Robot Controller</h1>
+<h2>📹 Camera Realtime (ESP32-CAM)</h2>
+
+<!-- CAMERA -->
+<div id="cam-box">
+    <img id="camStream" alt="ESP32-CAM Stream">
+</div>
+
+<script>
+
+const CAM_BASE_URL = "https://overappreciative-unwistfully-bob.ngrok-free.dev"; 
+
+const CAM_STREAM_URL = CAM_BASE_URL + "/stream";
+
+
+const camImg = document.getElementById("camStream");
+
+function startCamera() {
+    camImg.src = CAM_STREAM_URL + "?t=" + Date.now();
+}
+
+// tự reconnect khi camera mất
+camImg.onerror = () => {
+    console.warn("Camera disconnected – retrying...");
+    setTimeout(startCamera, 1000);
+};
+
+startCamera();
+</script>
+
+<br><br>
+
+<!-- SPEED -->
+<h2>Tốc độ: <span id="spdLabel">50</span>%</h2>
+<input type="range" id="speedSlider" min="0" max="100" value="50" class="slider">
+
+<script>
+document.getElementById("speedSlider").addEventListener("input", () => {
+    document.getElementById("spdLabel").innerText =
+        document.getElementById("speedSlider").value;
+});
+</script>
+
+<!-- CONTROLS -->
+<div class="row">
+    <button class="control-btn" data-cmd="Q">↖</button>
+    <button class="control-btn" data-cmd="W">↑</button>
+    <button class="control-btn" data-cmd="E">↗</button>
+</div>
+
+<div class="row">
+    <button class="control-btn" data-cmd="A">←</button>
+    <button class="control-btn" data-cmd="R">⟲</button>
+    <button class="control-btn" data-cmd="T">⟳</button>
+    <button class="control-btn" data-cmd="D">→</button>
+</div>
+
+<div class="row">
+    <button class="control-btn" data-cmd="Z">↙</button>
+    <button class="control-btn" data-cmd="X">↓</button>
+    <button class="control-btn" data-cmd="C">↘</button>
+</div>
+
+<br>
+
+<button class="led-btn" onclick="sendInstant('F')">🔆 ON LED</button>
+<button class="led-btn" onclick="sendInstant('G')">💡 OFF LED</button>
+
+<script>
+/* =========================================================
+   MQTT – GIỮ NGUYÊN PHẦN ĐIỀU KHIỂN XE
+   ========================================================= */
+const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+
+client.on("connect", () => {
+    console.log("MQTT Connected");
+});
+
+let activeCmd = null;
+
+function sendDrive(cmd) {
+    activeCmd = cmd;
+    const spd = Number(document.getElementById("speedSlider").value);
+
+    if (spd === 0) {
+        client.publish("mecanum/cmd", "S0");
+        return;
+    }
+
+    client.publish("mecanum/cmd", cmd + spd);
+}
+
+function stop() {
+    if (!activeCmd) return;
+    activeCmd = null;
+    client.publish("mecanum/cmd", "S0");
+}
+
+function sendInstant(msg) {
+    client.publish("mecanum/cmd", msg);
+}
+
+document.querySelectorAll("button[data-cmd]").forEach(btn => {
+    const cmd = btn.getAttribute("data-cmd");
+
+    btn.addEventListener("mousedown", () => sendDrive(cmd));
+    btn.addEventListener("mouseup", stop);
+    btn.addEventListener("mouseleave", stop);
+
+    btn.addEventListener("touchstart", () => sendDrive(cmd));
+    btn.addEventListener("touchend", stop);
+});
+</script>
+
+</body>
+</html>
