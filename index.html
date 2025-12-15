@@ -17,6 +17,7 @@ body {
     padding: 20px;
 }
 
+
 h1 { font-size: 30px; margin-bottom: 5px; }
 h2 { margin: 10px 0; }
 
@@ -83,29 +84,13 @@ h2 { margin: 10px 0; }
 
 <!-- CAMERA -->
 <div id="cam-box">
-    <img id="camStream" alt="ESP32-CAM Stream">
+    <img
+        id="camStream"
+        src="https://overappreciative-unwistfully-bob.ngrok-free.dev/stream"
+        alt="ESP32-CAM Stream"
+        style="width:100%; background:black;"
+    >
 </div>
-
-<script>
-
-const CAM_BASE_URL = "https://overappreciative-unwistfully-bob.ngrok-free.dev"; 
-
-const CAM_STREAM_URL = CAM_BASE_URL + "/stream";
-
-
-const camImg = document.getElementById("camStream");
-
-function startCamera() {
-    camImg.src = CAM_STREAM_URL + "?t=" + Date.now();
-}
-
-// tự reconnect khi camera mất
-camImg.onerror = () => {
-    console.warn("Camera disconnected – retrying...");
-    setTimeout(startCamera, 1000);
-};
-
-startCamera();
 </script>
 
 <br><br>
