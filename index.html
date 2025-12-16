@@ -2,9 +2,8 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Mecanum Robot Control</title>
+<title>Mecanum Robot Controller</title>
 
-<!-- MQTT -->
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
@@ -17,11 +16,76 @@ body {
     padding: 20px;
 }
 
+/* ===== HEADER ===== */
+h1 {
+    font-size: 30px;
+    margin-bottom: 4px;
+}
 
-h1 { font-size: 30px; margin-bottom: 5px; }
-h2 { margin: 10px 0; }
+#section-label {
+    font-size: 16px;
+    color: #9aa4b2;
+    margin-bottom: 14px;
+}
+
+/* ===== DHT ===== */
+#dht-box {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 10px;
+}
+
+.dht-card {
+    width: 200px;
+    height: 120px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+
+.temp {
+    background: linear-gradient(135deg, #ff512f, #f09819);
+}
+
+.humi {
+    background: linear-gradient(135deg, #00c6ff, #0072ff);
+}
+
+.dht-value {
+    font-size: 42px;
+}
+
+.dht-unit {
+    font-size: 20px;
+}
+
+/* ===== RESET BUTTON ===== */
+#reset-dht {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 24px;
+    border: none;
+    background: #1f2933;
+    color: #ffffff;
+    cursor: pointer;
+    margin-bottom: 16px;
+}
+
+#reset-dht:active {
+    background: #374151;
+    transform: rotate(90deg);
+}
 
 /* ===== CAMERA ===== */
+h2 {
+    margin: 10px 0;
+}
+
 #cam-box {
     width: 90%;
     max-width: 640px;
@@ -33,18 +97,54 @@ h2 { margin: 10px 0; }
 
 #camStream {
     width: 100%;
-    height: auto;
     aspect-ratio: 4 / 3;
     background: #000;
 }
 
 /* ===== SPEED ===== */
-.slider {
-    width: 350px;
-    margin: 15px 0 25px 0;
+#speed-box {
+    margin: 18px 0;
 }
 
-/* ===== BUTTONS ===== */
+#speed-text {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+#spdLabel {
+    font-size: 34px;
+    color: #ff00ff;
+}
+
+.slider {
+    width: 350px;
+    height: 22px;
+    border-radius: 12px;
+    accent-color: #ff00ff;
+}
+
+.slider::-webkit-slider-thumb {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid #ff00ff;
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 3px solid #ff00ff;
+    cursor: pointer;
+}
+
+/* ===== CONTROLS ===== */
+.row { margin-top: 10px; }
+
 .control-btn {
     width: 110px;
     height: 85px;
@@ -55,8 +155,6 @@ h2 { margin: 10px 0; }
     background: #ffffff;
     color: #000;
     cursor: pointer;
-    box-shadow: 0px 4px 8px rgba(255,255,255,0.2);
-    transition: 0.1s;
 }
 
 .control-btn:active {
@@ -64,8 +162,7 @@ h2 { margin: 10px 0; }
     background: #ffe27a;
 }
 
-.row { margin-top: 10px; }
-
+/* ===== LED ===== */
 .led-btn {
     width: 150px;
     height: 60px;
@@ -80,32 +177,43 @@ h2 { margin: 10px 0; }
 <body>
 
 <h1>🚗 Mecanum Robot Controller</h1>
-<h2>📹 Camera Realtime (ESP32-CAM)</h2>
+<div id="section-label">Nhiệt độ & Độ ẩm môi trường</div>
 
-<!-- CAMERA -->
-<div id="cam-box">
-    <img
-        id="camStream"
-        src="https://fast-apes-care.loca.lt/stream" 
-        alt="ESP32-CAM Stream"
-        style="width:100%; background:black;"
-    >
+<!-- ===== DHT DISPLAY ===== -->
+<div id="dht-box">
+    <div class="dht-card temp">
+        <div>NHIỆT ĐỘ</div>
+        <div class="dht-value">
+            <span id="tempValue">--</span><span class="dht-unit">°C</span>
+        </div>
+    </div>
+
+    <div class="dht-card humi">
+        <div>ĐỘ ẨM</div>
+        <div class="dht-value">
+            <span id="humiValue">--</span><span class="dht-unit">%</span>
+        </div>
+    </div>
 </div>
 
-<br><br>
+<button id="reset-dht" title="Reset nhiệt độ & độ ẩm">⟲</button>
 
-<!-- SPEED -->
-<h2>Tốc độ: <span id="spdLabel">50</span>%</h2>
-<input type="range" id="speedSlider" min="0" max="100" value="50" class="slider">
+<h2>📹 Camera Realtime (ESP32-CAM)</h2>
 
-<script>
-document.getElementById("speedSlider").addEventListener("input", () => {
-    document.getElementById("spdLabel").innerText =
-        document.getElementById("speedSlider").value;
-});
-</script>
+<div id="cam-box">
+    <img id="camStream"
+         src="https://overappreciative-unwistfully-bob.ngrok-free.dev/stream">
+</div>
 
-<!-- CONTROLS -->
+<!-- ===== SPEED ===== -->
+<div id="speed-box">
+    <div id="speed-text">
+        Tốc độ: <span id="spdLabel">50</span>%
+    </div>
+    <input type="range" id="speedSlider" min="0" max="100" value="50" class="slider">
+</div>
+
+<!-- ===== CONTROLS ===== -->
 <div class="row">
     <button class="control-btn" data-cmd="Q">↖</button>
     <button class="control-btn" data-cmd="W">↑</button>
@@ -131,31 +239,41 @@ document.getElementById("speedSlider").addEventListener("input", () => {
 <button class="led-btn" onclick="sendInstant('G')">💡 OFF LED</button>
 
 <script>
-/* =========================================================
-   MQTT – GIỮ NGUYÊN PHẦN ĐIỀU KHIỂN XE
-   ========================================================= */
+/* ===== SPEED ===== */
+speedSlider.oninput = () => spdLabel.innerText = speedSlider.value;
+
+/* ===== MQTT ===== */
 const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
 client.on("connect", () => {
-    console.log("MQTT Connected");
+    client.subscribe("mecanum/dht11");
 });
 
+/* Nhận nhiệt độ & độ ẩm */
+client.on("message", (topic, message) => {
+    if (topic === "mecanum/dht11") {
+        const d = JSON.parse(message.toString());
+        tempValue.innerText = d.temperature.toFixed(1);
+        humiValue.innerText = d.humidity.toFixed(1);
+    }
+});
+
+/* RESET DHT */
+document.getElementById("reset-dht").onclick = () => {
+    tempValue.innerText = "--";
+    humiValue.innerText = "--";
+};
+
+/* ===== CONTROL ===== */
 let activeCmd = null;
 
 function sendDrive(cmd) {
     activeCmd = cmd;
-    const spd = Number(document.getElementById("speedSlider").value);
-
-    if (spd === 0) {
-        client.publish("mecanum/cmd", "S0");
-        return;
-    }
-
-    client.publish("mecanum/cmd", cmd + spd);
+    const spd = speedSlider.value;
+    client.publish("mecanum/cmd", spd == 0 ? "S0" : cmd + spd);
 }
 
 function stop() {
-    if (!activeCmd) return;
     activeCmd = null;
     client.publish("mecanum/cmd", "S0");
 }
@@ -165,20 +283,14 @@ function sendInstant(msg) {
 }
 
 document.querySelectorAll("button[data-cmd]").forEach(btn => {
-    const cmd = btn.getAttribute("data-cmd");
-
-    btn.addEventListener("mousedown", () => sendDrive(cmd));
-    btn.addEventListener("mouseup", stop);
-    btn.addEventListener("mouseleave", stop);
-
-    btn.addEventListener("touchstart", () => sendDrive(cmd));
-    btn.addEventListener("touchend", stop);
+    const cmd = btn.dataset.cmd;
+    btn.onmousedown = () => sendDrive(cmd);
+    btn.onmouseup = stop;
+    btn.onmouseleave = stop;
+    btn.ontouchstart = () => sendDrive(cmd);
+    btn.ontouchend = stop;
 });
 </script>
 
 </body>
 </html>
-
-
-
-
