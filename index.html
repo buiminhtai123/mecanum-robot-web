@@ -202,7 +202,7 @@ h2 {
 
 <div id="cam-box">
     <img id="camStream"
-         src="https://ramose-attendingly-romana.ngrok-free.dev/stream">
+         src="http://192.168.2.30:81/stream">
 </div>
 
 <!-- ===== SPEED ===== -->
@@ -290,6 +290,14 @@ document.querySelectorAll("button[data-cmd]").forEach(btn => {
     btn.ontouchstart = () => sendDrive(cmd);
     btn.ontouchend = stop;
 });
+</script>
+<script>
+setInterval(() => {
+    const cam = document.getElementById("camStream");
+    if (cam) {
+        cam.src = cam.src.split("?")[0] + "?t=" + Date.now();
+    }
+}, 5000);
 </script>
 
 </body>
