@@ -16,100 +16,19 @@ body {
     padding: 20px;
 }
 
-/* ===== HEADER ===== */
 h1 {
     font-size: 30px;
-    margin-bottom: 4px;
-}
-
-#section-label {
-    font-size: 16px;
-    color: #9aa4b2;
-    margin-bottom: 14px;
-}
-
-/* ===== DHT ===== */
-#dht-box {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
     margin-bottom: 10px;
-}
-
-.dht-card {
-    width: 200px;
-    height: 120px;
-    border-radius: 16px;
-    display: flex;     
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-}
-
-.temp {
-    background: linear-gradient(135deg, #ff512f, #f09819);
-}
-
-.humi {
-    background: linear-gradient(135deg, #00c6ff, #0072ff);
-}
-
-.dht-value {
-    font-size: 42px;
-}
-
-.dht-unit {
-    font-size: 20px;
-}
-
-/* ===== RESET BUTTON ===== */
-#reset-dht {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    font-size: 24px;
-    border: none;
-    background: #1f2933;
-    color: #ffffff;
-    cursor: pointer;
-    margin-bottom: 16px;
-}
-
-#reset-dht:active {
-    background: #374151;
-    transform: rotate(90deg);
-}
-
-/* ===== CAMERA ===== */
-h2 {
-    margin: 10px 0;
-}
-
-#cam-box {
-    width: 90%;
-    max-width: 640px;
-    margin: auto;
-    border: 3px solid #00ffd5;
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-#camStream {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    background: #000;
 }
 
 /* ===== SPEED ===== */
 #speed-box {
-    margin: 18px 0;
+    margin: 20px 0;
 }
 
 #speed-text {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: bold;
-    margin-bottom: 12px;
 }
 
 #spdLabel {
@@ -125,15 +44,6 @@ h2 {
 }
 
 .slider::-webkit-slider-thumb {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 3px solid #ff00ff;
-    cursor: pointer;
-}
-
-.slider::-moz-range-thumb {
     width: 34px;
     height: 34px;
     border-radius: 50%;
@@ -161,49 +71,12 @@ h2 {
     transform: scale(0.93);
     background: #ffe27a;
 }
-
-/* ===== LED ===== */
-.led-btn {
-    width: 150px;
-    height: 60px;
-    font-size: 22px;
-    border-radius: 10px;
-    margin: 10px;
-    cursor: pointer;
-}
 </style>
 </head>
 
 <body>
 
 <h1>Mecanum Robot Controller</h1>
-<div id="section-label">Nhiệt độ & Độ ẩm môi trường</div>
-
-<!-- ===== DHT DISPLAY ===== -->
-<div id="dht-box">
-    <div class="dht-card temp">
-        <div>NHIỆT ĐỘ</div>
-        <div class="dht-value">
-            <span id="tempValue">--</span><span class="dht-unit">°C</span>
-        </div>
-    </div>
-
-    <div class="dht-card humi">
-        <div>ĐỘ ẨM</div>
-        <div class="dht-value">
-            <span id="humiValue">--</span><span class="dht-unit">%</span>
-        </div>
-    </div>
-</div>
-
-<button id="reset-dht" title="Reset nhiệt độ & độ ẩm">⟲</button>
-
-<h2>Camera Realtime (ESP32-CAM)</h2>
-
-<div id="cam-box">
-    <img id="camStream"
-         src="http://192.168.164.151:81/stream">
-</div>
 
 <!-- ===== SPEED ===== -->
 <div id="speed-box">
@@ -233,72 +106,50 @@ h2 {
     <button class="control-btn" data-cmd="C">↘</button>
 </div>
 
-<br>
-
-<button class="led-btn" onclick="sendInstant('F')">🔆 ON LED</button>
-<button class="led-btn" onclick="sendInstant('G')">💡 OFF LED</button>
-
 <script>
 /* ===== SPEED ===== */
-speedSlider.oninput = () => spdLabel.innerText = speedSlider.value;
+const speedSlider = document.getElementById("speedSlider");
+const spdLabel = document.getElementById("spdLabel");
+
+speedSlider.oninput = () => {
+    spdLabel.innerText = speedSlider.value;
+};
 
 /* ===== MQTT ===== */
 const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
 client.on("connect", () => {
-    client.subscribe("mecanum/dht11");
+    console.log("MQTT Connected");
 });
 
-/* Nhận nhiệt độ & độ ẩm */
-client.on("message", (topic, message) => {
-    if (topic === "mecanum/dht11") {
-        const d = JSON.parse(message.toString());
-        tempValue.innerText = d.temperature.toFixed(1);
-        humiValue.innerText = d.humidity.toFixed(1);
-    }
-});
-
-/* RESET DHT */
-document.getElementById("reset-dht").onclick = () => {
-    tempValue.innerText = "--";
-    humiValue.innerText = "--";
-};
-
-/* ===== CONTROL ===== */
-let activeCmd = null;
-
+/* ===== MOMENTARY CONTROL (NHẤN GIỮ) ===== */
 function sendDrive(cmd) {
-    activeCmd = cmd;
     const spd = speedSlider.value;
-    client.publish("mecanum/cmd", spd == 0 ? "S0" : cmd + spd);
+    client.publish("hybrid/cmd", spd == 0 ? "S0" : cmd + spd);
 }
 
 function stop() {
-    activeCmd = null;
-    client.publish("mecanum/cmd", "S0");
+    client.publish("hybrid/cmd", "S0");   // ✅ ĐÚNG TOPIC
 }
 
-function sendInstant(msg) {
-    client.publish("mecanum/cmd", msg);
-}
-
+/* ===== GÁN SỰ KIỆN ===== */
 document.querySelectorAll("button[data-cmd]").forEach(btn => {
     const cmd = btn.dataset.cmd;
+
+    // PC
     btn.onmousedown = () => sendDrive(cmd);
     btn.onmouseup = stop;
     btn.onmouseleave = stop;
-    btn.ontouchstart = () => sendDrive(cmd);
+
+    // Mobile
+    btn.ontouchstart = (e) => {
+        e.preventDefault();
+        sendDrive(cmd);
+    };
     btn.ontouchend = stop;
 });
 </script>
-<script>
-setInterval(() => {
-    const cam = document.getElementById("camStream");
-    if (cam) {
-        cam.src = cam.src.split("?")[0] + "?t=" + Date.now();
-    }
-}, 5000);
-</script>
+
 
 </body>
 </html>
