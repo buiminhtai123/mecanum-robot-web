@@ -2,64 +2,52 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Mecanum Robot Controller</title>
+<title>Mecanum Robot Controller (MQTT)</title>
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
 <style>
 body {
     background: #0d1117;
-    color: #fff;
+    color: #ffffff;
     text-align: center;
     font-family: Arial, sans-serif;
-    user-select: none;
     padding: 20px;
 }
 
 h1 {
-    font-size: 30px;
-    margin-bottom: 10px;
+    font-size: 28px;
 }
 
 /* ===== SPEED ===== */
 #speed-box {
     margin: 20px 0;
 }
-
-#speed-text {
-    font-size: 26px;
-    font-weight: bold;
-}
-
 #spdLabel {
-    font-size: 34px;
-    color: #ff00ff;
+    font-size: 32px;
+    color: #00ffcc;
 }
-
 .slider {
-    width: 350px;
-    height: 22px;
-    border-radius: 12px;
-    accent-color: #ff00ff;
+    width: 360px;
 }
 
-.slider::-webkit-slider-thumb {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: 3px solid #ff00ff;
-    cursor: pointer;
+/* ===== STATUS ===== */
+#status {
+    margin-top: 20px;
+    font-size: 18px;
+    background: #161b22;
+    padding: 15px;
+    border-radius: 10px;
 }
 
-/* ===== CONTROLS ===== */
+/* ===== BUTTONS ===== */
 .row { margin-top: 10px; }
 
 .control-btn {
     width: 110px;
     height: 85px;
-    font-size: 32px;
-    margin: 8px;
+    font-size: 30px;
+    margin: 6px;
     border-radius: 14px;
     border: none;
     background: #ffffff;
@@ -68,8 +56,8 @@ h1 {
 }
 
 .control-btn:active {
-    transform: scale(0.93);
-    background: #ffe27a;
+    transform: scale(0.92);
+    background: #ffdd55;
 }
 </style>
 </head>
@@ -80,34 +68,40 @@ h1 {
 
 <!-- ===== SPEED ===== -->
 <div id="speed-box">
-    <div id="speed-text">
-        Tốc độ: <span id="spdLabel">50</span>%
-    </div>
+    Tốc độ: <span id="spdLabel">50</span> %
+    <br>
     <input type="range" id="speedSlider" min="0" max="100" value="50" class="slider">
 </div>
 
 <!-- ===== CONTROLS ===== -->
 <div class="row">
-    <button class="control-btn" data-cmd="Q">↖</button>
-    <button class="control-btn" data-cmd="W">↑</button>
-    <button class="control-btn" data-cmd="E">↗</button>
+    <button class="control-btn" data-cmd="FL">↖</button>
+    <button class="control-btn" data-cmd="F">↑</button>
+    <button class="control-btn" data-cmd="FR">↗</button>
 </div>
 
 <div class="row">
-    <button class="control-btn" data-cmd="A">←</button>
-    <button class="control-btn" data-cmd="R">⟲</button>
-    <button class="control-btn" data-cmd="T">⟳</button>
-    <button class="control-btn" data-cmd="D">→</button>
+    <button class="control-btn" data-cmd="L">←</button>
+    <button class="control-btn" data-cmd="RL">⟲</button>
+    <button class="control-btn" data-cmd="RR">⟳</button>
+    <button class="control-btn" data-cmd="R">→</button>
 </div>
 
 <div class="row">
-    <button class="control-btn" data-cmd="Z">↙</button>
-    <button class="control-btn" data-cmd="X">↓</button>
-    <button class="control-btn" data-cmd="C">↘</button>
+    <button class="control-btn" data-cmd="BL">↙</button>
+    <button class="control-btn" data-cmd="B">↓</button>
+    <button class="control-btn" data-cmd="BR">↘</button>
+</div>
+
+<!-- ===== STATUS (CHỈ HIỂN THỊ VẬN TỐC) ===== -->
+<div id="status">
+    <div>Vx: <span id="vx">0.00</span> m/s</div>
+    <div>Vy: <span id="vy">0.00</span> m/s</div>
+    <div>Wz: <span id="wz">0.00</span> rad/s</div>
 </div>
 
 <script>
-/* ===== SPEED ===== */
+/* ================= SPEED ================= */
 const speedSlider = document.getElementById("speedSlider");
 const spdLabel = document.getElementById("spdLabel");
 
@@ -115,41 +109,81 @@ speedSlider.oninput = () => {
     spdLabel.innerText = speedSlider.value;
 };
 
-/* ===== MQTT ===== */
+/* ================= MQTT ================= */
 const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
 
 client.on("connect", () => {
     console.log("MQTT Connected");
+    client.subscribe("hybrid/status");
 });
 
-/* ===== MOMENTARY CONTROL (NHẤN GIỮ) ===== */
-function sendDrive(cmd) {
-    const spd = speedSlider.value;
-    client.publish("hybrid/cmd", spd == 0 ? "S0" : cmd + spd);
+/* ================= PARAM ================= */
+const V_MAX = 0.6;   // m/s
+const W_MAX = 1.5;   // rad/s
+
+function scaleSpeed() {
+    return speedSlider.value / 100.0;
+}
+
+/* ================= SEND CMD ================= */
+function sendCmd(vx, vy, wz) {
+    client.publish("hybrid/cmd", JSON.stringify({ vx, vy, wz }));
 }
 
 function stop() {
-    client.publish("hybrid/cmd", "S0");   // ✅ ĐÚNG TOPIC
+    sendCmd(0, 0, 0);
 }
 
-/* ===== GÁN SỰ KIỆN ===== */
-document.querySelectorAll("button[data-cmd]").forEach(btn => {
+/* ================= COMMAND MAP ================= */
+function handleCommand(cmd) {
+    const k = scaleSpeed();
+
+    let vx = 0, vy = 0, wz = 0;
+
+    switch (cmd) {
+        case "F":  vx =  V_MAX * k; break;
+        case "B":  vx = -V_MAX * k; break;
+        case "L":  vy =  V_MAX * k; break;
+        case "R":  vy = -V_MAX * k; break;
+
+        case "FL": vx =  V_MAX * k; vy =  V_MAX * k; break;
+        case "FR": vx =  V_MAX * k; vy = -V_MAX * k; break;
+        case "BL": vx = -V_MAX * k; vy =  V_MAX * k; break;
+        case "BR": vx = -V_MAX * k; vy = -V_MAX * k; break;
+
+        case "RL": wz =  W_MAX * k; break;
+        case "RR": wz = -W_MAX * k; break;
+    }
+
+    sendCmd(vx, vy, wz);
+}
+
+/* ================= BUTTON EVENTS ================= */
+document.querySelectorAll(".control-btn").forEach(btn => {
     const cmd = btn.dataset.cmd;
 
-    // PC
-    btn.onmousedown = () => sendDrive(cmd);
+    btn.onmousedown = () => handleCommand(cmd);
     btn.onmouseup = stop;
     btn.onmouseleave = stop;
 
-    // Mobile
-    btn.ontouchstart = (e) => {
+    btn.ontouchstart = e => {
         e.preventDefault();
-        sendDrive(cmd);
+        handleCommand(cmd);
     };
     btn.ontouchend = stop;
 });
-</script>
 
+/* ================= RECEIVE STATUS ================= */
+client.on("message", (topic, payload) => {
+    if (topic !== "hybrid/status") return;
+
+    const data = JSON.parse(payload.toString());
+
+    document.getElementById("vx").innerText = data.vx.toFixed(2);
+    document.getElementById("vy").innerText = data.vy.toFixed(2);
+    document.getElementById("wz").innerText = data.wz.toFixed(2);
+});
+</script>
 
 </body>
 </html>
